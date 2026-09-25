@@ -15,6 +15,45 @@ Prerequisite: `neon link` already done in this folder (project `round-recipe-778
 5. Log in as admin (`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in `backend/.env`), open Live tracking → **Start demo** → watch vehicles move in real time (labeled ⚠️ DEMO).
 6. Re-verify anytime: `cd backend; node e2e-realtime.mjs` (needs the single-host server running).
 
+## Deploy to production (Vercel frontend + Render backend + Neon DB)
+Socket.IO needs a long-running server, so the frontend goes to Vercel and the
+backend to Render. Both talk to the same Neon Postgres (Singapore).
+
+### 1. Push to GitHub
+```bash
+cd "D:\ARM TRAVELS"
+git remote add origin https://github.com/<you>/fleettrack.git
+git branch -M main
+git push -u origin main
+```
+Secrets are git-ignored (`.env`, `.env.local`); only `.env.example` files are committed.
+
+### 2. Backend → Render (one click via blueprint)
+1. Render dashboard → New → **Blueprint** → select the repo (`render.yaml` at root).
+2. Fill the `sync: false` env vars:
+   `DATABASE_URL` (Neon pooled + `?pgbouncer=true`), `DIRECT_URL` (Neon direct),
+   `APP_URL` + `FRONTEND_URL` (your Vercel URL, set after step 3),
+   `SMTP_HOST/PORT/USER/PASSWORD`, `EMAIL_FROM`, `EMAIL_REDIRECT_TO`.
+   `JWT_SECRET` is auto-generated; `TRUST_PROXY=1`, `CROSS_SITE_AUTH=true` are preset.
+3. Deploy. Build runs `prisma generate + migrate deploy + build`; health check is `/health`.
+
+### 3. Frontend → Vercel
+1. Vercel → Add New Project → import the repo, **Root Directory = `frontend`**.
+2. Environment variables:
+   `NEXT_PUBLIC_API_URL=https://<render-backend>.onrender.com`,
+   `NEXT_PUBLIC_SOCKET_URL=https://<render-backend>.onrender.com`,
+   `NEXT_PUBLIC_APP_URL=https://<your-app>.vercel.app`,
+   `NEXT_PUBLIC_MAP_TILE_URL=https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`.
+3. Deploy, then go back to Render and set `APP_URL`/`FRONTEND_URL` to the Vercel URL.
+
+### 4. Seed production data (one time, from your machine)
+```bash
+cd backend
+DATABASE_URL="<neon-direct-url>" DIRECT_URL="<neon-direct-url>" npm run setup
+```
+Then create/approve the admin via the UI or a SQL update. Demo simulation runs on
+Render too (Start demo on the live map); simulated points are always DEMO-labeled.
+
 ## Quick start — separated (two links, optional)
 1. `cp backend/.env.example backend/.env` and set `DATABASE_URL`, `JWT_SECRET`, SMTP.
 2. `cp frontend/.env.example frontend/.env.local`
