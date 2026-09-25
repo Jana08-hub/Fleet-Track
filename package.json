@@ -1,0 +1,15 @@
+{
+  "name": "fleettrack",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FleetTrack — real-time fleet tracking. One command: npm run dev, then open http://localhost:3100",
+  "scripts": {
+    "dev": "npm --prefix backend run dev:single",
+    "dev:split": "echo Run backend and frontend separately: backend(:4000) + frontend(:3000)",
+    "setup": "npm --prefix backend run setup"
+  },
+  "dependencies": {
+    "@neon/config": "^1.7.3",
+    "@neon/env": "^1.4.4"
+  }
+}

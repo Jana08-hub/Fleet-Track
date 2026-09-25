@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+
+body {
+  @apply bg-slate-100 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* ---------- primitives ---------- */
+.card { @apply rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,.06)] dark:border-slate-800 dark:bg-slate-900; }
+.card-p { @apply p-5 sm:p-6; }
+.btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none dark:focus-visible:ring-offset-slate-950; }
+.btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800; }
+.btn-danger { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold bg-red-600 text-white transition hover:bg-red-700 disabled:opacity-50; }
+.input { @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100; }
+.label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400; }
+.badge { @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+.badge-green { @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300; }
+.badge-red { @apply bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300; }
+.badge-amber { @apply bg-amber-100 text-amber-900 dark:bg-amber-500/15 dark:text-amber-300; }
+.badge-blue { @apply bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300; }
+.badge-slate { @apply bg-slate-200/70 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300; }
+
+/* ---------- tables ---------- */
+.table-wrap { @apply overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900; }
+.table { @apply w-full min-w-[640px] border-collapse text-left text-sm; }
+.table thead th { @apply border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400; }
+.table tbody td { @apply border-b border-slate-100 px-4 py-3 align-middle last:border-0 dark:border-slate-800/70; }
+.table tbody tr { @apply transition hover:bg-slate-50 dark:hover:bg-slate-800/50; }
+
+/* ---------- sidebar ---------- */
+.side-link { @apply flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white; }
+.side-link.active { @apply bg-blue-600 text-white shadow-sm hover:bg-blue-600 hover:text-white dark:bg-blue-600 dark:text-white; }
+
+/* ---------- skeletons ---------- */
+.skeleton { @apply animate-pulse rounded-lg bg-slate-200 dark:bg-slate-800; }
+.shimmer { position: relative; overflow: hidden; }
+.shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent); animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* ---------- misc ---------- */
+.page-title { @apply text-xl font-bold tracking-tight sm:text-2xl; }
+.page-sub { @apply mt-1 text-sm text-slate-500 dark:text-slate-400; }
+.leaflet-container { z-index: 0; font-family: inherit; }
+.stat-icon { @apply flex h-11 w-11 items-center justify-center rounded-xl; }

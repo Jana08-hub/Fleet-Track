@@ -1,0 +1,46 @@
+# Render Blueprint — FleetTrack backend (Express + Socket.IO + Prisma).
+# Deploy: push this repo to GitHub, then in Render: New → Blueprint → select repo.
+# The frontend (Next.js) deploys separately on Vercel with Root Directory `frontend`.
+services:
+  - type: web
+    name: fleettrack-backend
+    runtime: node
+    rootDir: backend
+    plan: starter
+    healthCheckPath: /health
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: node dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: 1
+      - key: CROSS_SITE_AUTH
+        value: true
+      - key: SIMULATION_ENABLED
+        value: true
+      - key: BCRYPT_ROUNDS
+        value: 12
+      # --- set these in the Render dashboard (sensitive) ---
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_URL
+        sync: false # e.g. https://fleettrack.vercel.app (used in email links)
+      - key: FRONTEND_URL
+        sync: false # same as APP_URL (CORS + sockets)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_REDIRECT_TO
+        sync: false

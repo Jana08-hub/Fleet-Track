@@ -1,0 +1,12 @@
+.neon
+.env.local
+node_modules/
+
+.env
+
+dist/
+.next/
+*.log
+coverage/
+playwright-mcp/
+.playwright-mcp/

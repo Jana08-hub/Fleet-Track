@@ -1,0 +1,358 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  DRIVER
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+  PENDING
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  IN_TRIP
+  MAINTENANCE
+  OFFLINE
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  ON_TRIP
+  OFFLINE
+}
+
+enum TripStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DELAYED
+}
+
+enum AlertType {
+  SPEED_LIMIT_EXCEEDED
+  VEHICLE_OFFLINE
+  GPS_UNAVAILABLE
+  GEOZONE_ENTRY
+  GEOZONE_EXIT
+  UNAUTHORIZED_MOVEMENT
+  LONG_STOP
+  MAINTENANCE_DUE
+  INSURANCE_EXPIRY
+  LICENSE_EXPIRY
+  TRIP_DELAY
+  FAILED_GPS_UPDATE
+  ACCOUNT_SECURITY
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum GeofenceEventType {
+  GEOZONE_ENTRY
+  GEOZONE_EXIT
+  UNAUTHORIZED_MOVEMENT
+  LONG_STOP
+  SPEED_LIMIT_EXCEEDED
+}
+
+model User {
+  id              String        @id @default(cuid())
+  name            String
+  email           String        @unique
+  passwordHash    String
+  role            Role          @default(DRIVER)
+  emailVerified   Boolean       @default(false)
+  accountApproved Boolean       @default(false)
+  accountStatus   AccountStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  lastLoginAt     DateTime?
+  passwordResetTokenHash String?
+  passwordResetExpires DateTime?
+
+  driverProfile Driver?
+  verificationTokens EmailVerificationToken[]
+  emailLogs     EmailLog[] @relation("EmailRecipient")
+  sentEmails    EmailLog[] @relation("EmailSender")
+  sentTokens    EmailVerificationToken[] @relation("TokenSender")
+  maintenanceCreated MaintenanceRecord[] @relation("MaintenanceCreator")
+  auditActions  AuditLog[] @relation("AuditActor")
+
+  @@index([email])
+  @@index([role])
+}
+
+model OtpToken {
+  id        String    @id @default(cuid())
+  email     String
+  otpHash   String
+  purpose   String    @default("REGISTRATION")
+  // JSON: { name, passwordHash, phoneNumber, licenseNumber, licenseExpiry }
+  payload   String?
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  usedAt       DateTime?
+  sentByAdminId String?
+  sentBy       User?     @relation("TokenSender", fields: [sentByAdminId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailLog {
+  id               String   @id @default(cuid())
+  userId           String?
+  user             User?    @relation("EmailRecipient", fields: [userId], references: [id], onDelete: SetNull)
+  sentByAdminId    String?
+  sentBy           User?    @relation("EmailSender", fields: [sentByAdminId], references: [id], onDelete: SetNull)
+  emailType        String
+  recipientEmail   String
+  status           String   @default("SENT")
+  providerMessageId String?
+  errorMessage     String?
+  sentAt           DateTime @default(now())
+
+  @@index([userId])
+  @@index([emailType])
+  @@index([sentAt])
+}
+
+model Vehicle {
+  id                 String        @id @default(cuid())
+  registrationNumber String        @unique
+  vehicleType        String
+  brand              String
+  model              String
+  manufacturingYear  Int
+  fuelType           String
+  mileage            Float         @default(0)
+  status             VehicleStatus @default(ACTIVE)
+  insuranceExpiry    DateTime?
+  pollutionExpiry    DateTime?
+  lastLat            Float?
+  lastLng            Float?
+  lastSeenAt         DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  assignments  VehicleAssignment[]
+  trips        Trip[]
+  gpsPoints    GPSLocation[]
+  geofenceEvents GeofenceEvent[]
+  alerts       Alert[]
+  maintenance  MaintenanceRecord[]
+
+  @@index([status])
+  @@index([registrationNumber])
+}
+
+model Driver {
+  id               String       @id @default(cuid())
+  userId           String       @unique
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  licenseNumber    String       @unique
+  licenseExpiry    DateTime
+  phoneNumber      String
+  emergencyContact String?
+  status           DriverStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  assignments VehicleAssignment[]
+  trips       Trip[]
+  gpsPoints   GPSLocation[]
+  alerts      Alert[]
+
+  @@index([status])
+}
+
+model VehicleAssignment {
+  id          String    @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverId    String
+  driver      Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime  @default(now())
+  unassignedAt DateTime?
+  active      Boolean   @default(true)
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([active])
+}
+
+model Trip {
+  id                  String     @id @default(cuid())
+  vehicleId           String
+  vehicle             Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverId            String
+  driver              Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  source              String
+  destination         String
+  plannedStartTime    DateTime?
+  expectedArrivalTime DateTime?
+  actualStartTime     DateTime?
+  actualEndTime       DateTime?
+  status              TripStatus @default(PLANNED)
+  totalDistance       Float      @default(0)
+  averageSpeed        Float      @default(0)
+  maxSpeed            Float      @default(0)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  gpsPoints GPSLocation[]
+  geofenceEvents GeofenceEvent[]
+  alerts    Alert[]
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model GPSLocation {
+  id              String   @id @default(cuid())
+  vehicleId       String
+  vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverId        String
+  driver          Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  tripId          String?
+  trip            Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  latitude        Float
+  longitude       Float
+  accuracy        Float?
+  speed           Float?
+  heading         Float?
+  altitude        Float?
+  deviceTimestamp DateTime?
+  serverTimestamp DateTime @default(now())
+  isSimulated     Boolean  @default(false)
+
+  @@index([vehicleId, serverTimestamp])
+  @@index([tripId, serverTimestamp])
+  @@index([driverId])
+}
+
+model Geofence {
+  id        String   @id @default(cuid())
+  name      String
+  latitude  Float
+  longitude Float
+  radius    Float
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  events GeofenceEvent[]
+
+  @@index([active])
+}
+
+model GeofenceEvent {
+  id         String           @id @default(cuid())
+  geofenceId String
+  geofence   Geofence         @relation(fields: [geofenceId], references: [id], onDelete: Cascade)
+  vehicleId  String
+  vehicle    Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  tripId     String?
+  trip       Trip?            @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  eventType  GeofenceEventType
+  latitude   Float
+  longitude  Float
+  occurredAt DateTime         @default(now())
+
+  @@index([vehicleId])
+  @@index([geofenceId])
+  @@index([occurredAt])
+}
+
+model Alert {
+  id         String        @id @default(cuid())
+  vehicleId  String?
+  vehicle    Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  driverId   String?
+  driver     Driver?       @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  tripId     String?
+  trip       Trip?         @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  alertType  AlertType
+  message    String
+  severity   AlertSeverity @default(MEDIUM)
+  isRead     Boolean       @default(false)
+  isResolved Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  resolvedAt DateTime?
+
+  @@index([vehicleId])
+  @@index([alertType])
+  @@index([isRead])
+  @@index([isResolved])
+  @@index([createdAt])
+}
+
+model MaintenanceRecord {
+  id                String   @id @default(cuid())
+  vehicleId         String
+  vehicle           Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  serviceType       String
+  description       String
+  serviceDate       DateTime
+  cost              Float    @default(0)
+  currentMileage    Float    @default(0)
+  nextServiceDate   DateTime?
+  nextServiceMileage Float?
+  notes             String?
+  createdBy         String?
+  creator           User?    @relation("MaintenanceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now())
+
+  @@index([vehicleId])
+  @@index([serviceDate])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    String?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
+}
