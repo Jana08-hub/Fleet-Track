@@ -12,20 +12,28 @@ const from = process.env.EMAIL_FROM || 'FleetTrack <no-reply@fleettrack.example>
 // Used so the administrator receives all mails in one inbox.
 const redirectTo = (process.env.EMAIL_REDIRECT_TO || '').trim();
 
-// Resend (transactional API) is the primary sender when configured;
-// the Gmail SMTP transporter below stays as automatic fallback.
-const resendKey = (process.env.RESEND_API_KEY || '').trim();
-const resendFrom = (process.env.RESEND_FROM || '').trim() || from;
+// Brevo (transactional API) is the primary sender when configured;
+// the SMTP transporter below (Brevo relay) stays as automatic fallback.
+const brevoKey = (process.env.BREVO_API_KEY || '').trim();
 
-async function sendViaResend(to: string, subject: string, html: string, text: string): Promise<string> {
-  const res = await fetch('https://api.resend.com/emails', {
+function parseSender(fromAddr: string): { name?: string; email: string } {
+  const m = fromAddr.match(/^(.*)<([^<>]+)>\s*$/);
+  if (m) return { name: m[1].trim().replace(/^"|"$/g, '') || undefined, email: m[2].trim() };
+  return { email: fromAddr.trim() };
+}
+
+async function sendViaBrevo(to: string, subject: string, html: string, text: string): Promise<string> {
+  const sender = parseSender(from);
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: resendFrom, to: [to], subject, html, text }),
+    headers: { 'api-key': brevoKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      sender, to: [{ email: to }], subject, htmlContent: html, textContent: text,
+    }),
   });
-  if (!res.ok) throw new Error(`Resend rejected (${res.status}): ${await res.text()}`);
+  if (!res.ok) throw new Error(`Brevo rejected (${res.status}): ${await res.text()}`);
   const data: any = await res.json();
-  return data.id || 'resend-accepted';
+  return data.messageId || 'brevo-accepted';
 }
 
 // Never send real email from automated tests.
@@ -83,13 +91,13 @@ export async function sendMail(to: string, subject: string, html: string, text: 
   const finalHtml = redirectTo ? `<p style="background:#fef3c7;padding:8px 12px;border-radius:8px"><b>Redirected mail — intended recipient: ${to}</b></p>` + html : html;
   const finalText = redirectTo ? `Redirected mail — intended recipient: ${to}\n\n${text}` : text;
   let t = await getTransporter();
-  if (resendKey) {
+  if (brevoKey) {
     try {
-      const id = await sendViaResend(deliveredTo, finalSubject, finalHtml, finalText);
-      console.log(`[email] sent via resend to=${deliveredTo}`);
+      const id = await sendViaBrevo(deliveredTo, finalSubject, finalHtml, finalText);
+      console.log(`[email] sent via brevo to=${deliveredTo}`);
       return { messageId: id, stub: false as const, deliveredTo };
     } catch (e) {
-      console.error(`[email] resend failed, falling back to SMTP:`, (e as any)?.message || e);
+      console.error(`[email] brevo failed, falling back to SMTP:`, (e as any)?.message || e);
     }
   }
   if (!t) {
