@@ -74,6 +74,7 @@ export async function requestRegistrationOtp(d: RegistrationDetails, req?: any) 
     await prisma.emailLog.create({ data: { emailType: 'REGISTRATION_OTP', recipientEmail: (sent as any).deliveredTo || email, status: 'SENT', providerMessageId: (sent as any).messageId } });
   } catch (e: any) {
     await prisma.emailLog.create({ data: { emailType: 'REGISTRATION_OTP', recipientEmail: email, status: 'FAILED', errorMessage: String(e?.message || e) } });
+    console.error(`[otp] send failed for ${email}:`, e?.message || e);
     throw new Error('Could not send the OTP email. Try again in a minute.');
   }
   await audit({ action: 'OTP_REQUESTED', entityType: 'User', metadata: { email }, ipAddress: req?.ip, userAgent: req?.headers?.['user-agent'] });
@@ -120,7 +121,7 @@ export async function verifyRegistrationOtp(emailRaw: string, codeRaw: string, r
     const user = await tx.user.create({
       data: {
         name: payload.name, email, passwordHash: payload.passwordHash, role: 'DRIVER',
-        emailVerified: true, accountApproved: false, accountStatus: 'PENDING',
+        emailVerified: true, accountApproved: true, accountStatus: 'ACTIVE',
       },
     });
     const driver = await tx.driver.create({

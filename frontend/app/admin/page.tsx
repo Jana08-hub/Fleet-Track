@@ -10,12 +10,24 @@ export default function AdminDash() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [trips, setTrips] = useState<any[]>([]);
+  const [audit, setAudit] = useState<any[]>([]);
+  const [auditAction, setAuditAction] = useState('');
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotal, setAuditTotal] = useState(0);
+
+  const loadAudit = (p = auditPage, action = auditAction) => {
+    const params = new URLSearchParams({ page: String(p), limit: '10' });
+    if (action) params.set('action', action);
+    api(`/api/admin/audit-logs?${params}`).then(r => { setAudit(r.logs || []); setAuditTotal(r.total || 0); }).catch(() => {});
+  };
 
   useEffect(() => {
     api('/api/analytics/overview').then(setD).catch(() => {});
     api('/api/vehicles').then(v => setVehicles(v.vehicles)).catch(() => {});
     api('/api/alerts').then(a => setAlerts((a.alerts || []).filter((x: any) => !x.isResolved).slice(0, 6))).catch(() => {});
-    api('/api/trips').then(t => setTrips((t.trips || []).slice(0, 8))).catch(() => {});
+    api('/api/trips?limit=8').then(t => setTrips((t.trips || []))).catch(() => {});
+    loadAudit(1, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!d) return (<><PageHeader title="Dashboard" sub="Fleet overview" /><SkeletonCards n={8} /></>);
@@ -112,6 +124,33 @@ export default function AdminDash() {
           </table>
           {trips.length === 0 && <Empty title="No trips yet" sub="Create one from the Trips page." />}
         </div>
+      </div>
+
+      <div className="card card-p mt-4">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h2 className="font-bold">Audit trail</h2>
+          <input className="input ml-auto max-w-[200px] !py-1.5" placeholder="Filter action…"
+            value={auditAction} onChange={e => setAuditAction(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setAuditPage(1); loadAudit(1, (e.target as HTMLInputElement).value); } }} />
+          <button className="btn-ghost !py-1.5 text-xs" onClick={() => { setAuditPage(1); loadAudit(1, auditAction); }}>Filter</button>
+        </div>
+        {audit.length === 0 && <Empty title="No audit entries" sub="Admin actions appear here." />}
+        <ul className="space-y-1.5 text-sm">
+          {audit.map((l: any) => (
+            <li key={l.id} className="flex flex-wrap items-center gap-2">
+              <Badge tone="slate">{l.action}</Badge>
+              <span className="text-slate-500">{l.entityType}{l.entityId ? ` · ${String(l.entityId).slice(0, 8)}` : ''}</span>
+              <span className="ml-auto text-xs text-slate-500">{timeAgo(l.createdAt)}</span>
+            </li>
+          ))}
+        </ul>
+        {auditTotal > 10 && (
+          <div className="mt-3 flex items-center gap-3 text-sm">
+            <button className="btn-ghost" disabled={auditPage <= 1} onClick={() => { const p = auditPage - 1; setAuditPage(p); loadAudit(p); }}>← Prev</button>
+            <span className="text-slate-500">Page {auditPage} of {Math.ceil(auditTotal / 10)}</span>
+            <button className="btn-ghost" disabled={auditPage >= Math.ceil(auditTotal / 10)} onClick={() => { const p = auditPage + 1; setAuditPage(p); loadAudit(p); }}>Next →</button>
+          </div>
+        )}
       </div>
     </>
   );

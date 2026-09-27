@@ -15,12 +15,10 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
     const payload = verifyJwt(token);
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || user.accountStatus === 'DISABLED') return res.status(401).json({ error: 'Account disabled' });
-    if (!user.emailVerified || !user.accountApproved) {
+    if (!user.emailVerified) {
       return res.status(403).json({
-        error: !user.emailVerified
-          ? 'Your email address has not been verified yet. Please check your email or contact the administrator.'
-          : 'Your email has been verified, but your account is awaiting administrator approval.',
-        code: !user.emailVerified ? 'EMAIL_NOT_VERIFIED' : 'NOT_APPROVED',
+        error: 'Your email address has not been verified yet. Please check your email or contact the administrator.',
+        code: 'EMAIL_NOT_VERIFIED',
       });
     }
     req.user = { id: user.id, role: user.role as any, email: user.email };

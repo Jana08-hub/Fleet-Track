@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma.js';
-import { registerSchema, loginSchema, forgotSchema, resetSchema, requestOtpSchema, verifyOtpSchema } from '../utils/validation.js';
+import { registerSchema, loginSchema, forgotSchema, resetSchema, profileSchema, requestOtpSchema, verifyOtpSchema } from '../utils/validation.js';
 import { validateBody } from '../middleware/validate.js';
 import { signJwt } from '../utils/jwt.js';
 import { hashToken, generateVerificationToken } from '../utils/tokens.js';
@@ -55,7 +55,6 @@ r.post('/login', authLimiter, validateBody(loginSchema), async (req, res) => {
   }
   if (user.accountStatus === 'DISABLED') return res.status(403).json({ error: 'Account deactivated. Contact administrator.' });
   if (!user.emailVerified) return res.status(403).json({ error: 'Your email address has not been verified yet. Please check your email or contact the administrator.', code: 'EMAIL_NOT_VERIFIED' });
-  if (!user.accountApproved) return res.status(403).json({ error: 'Your email has been verified, but your account is awaiting administrator approval.', code: 'NOT_APPROVED' });
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   const token = signJwt({ sub: user.id, role: user.role as any, email: user.email });
   // Split deployment (Vercel frontend -> Render backend) is cross-site:
@@ -127,6 +126,34 @@ r.get('/me', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: p.sub }, include: { driverProfile: true } });
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
     res.json({ id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: user.emailVerified, accountApproved: user.accountApproved, accountStatus: user.accountStatus, driverProfile: user.driverProfile });
+  } catch {
+    res.status(401).json({ error: 'Invalid session' });
+  }
+});
+
+r.patch('/me', validateBody(profileSchema), async (req, res) => {
+  const header = req.headers.authorization;
+  const cookieToken = (req as any).cookies?.fleettrack_token;
+  const token = header?.startsWith('Bearer ') ? header.slice(7) : cookieToken;
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { verifyJwt } = await import('../utils/jwt.js');
+    const p = verifyJwt(token);
+    const user = await prisma.user.findUnique({ where: { id: p.sub } });
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    const { name, currentPassword, newPassword } = req.body as { name?: string; currentPassword?: string; newPassword?: string };
+    const data: any = {};
+    if (name && name !== user.name) data.name = name;
+    if (newPassword) {
+      if (!(await comparePassword(currentPassword!, user.passwordHash))) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+      data.passwordHash = await hashPassword(newPassword);
+    }
+    if (Object.keys(data).length === 0) return res.json({ message: 'Nothing to update' });
+    const updated = await prisma.user.update({ where: { id: user.id }, data });
+    await audit({ actorUserId: user.id, action: newPassword ? 'CHANGE_PASSWORD' : 'UPDATE_PROFILE', entityType: 'User', entityId: user.id, ipAddress: req.ip });
+    res.json({ message: 'Profile updated', name: updated.name });
   } catch {
     res.status(401).json({ error: 'Invalid session' });
   }

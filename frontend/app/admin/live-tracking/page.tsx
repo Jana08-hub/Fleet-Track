@@ -14,10 +14,18 @@ const Polyline = dynamic(() => import('react-leaflet').then(m => m.Polyline), { 
 const FitBounds = dynamic(() => import('@/components/fit-bounds').then(m => m.FitBounds), { ssr: false });
 
 const ONLINE_AFTER_MS = 120_000;
+const STALE_AFTER_MS = 30 * 60_000;
+
+function freshness(lastSeen?: string | null): 'online' | 'stale' | 'offline' {
+  if (!lastSeen) return 'offline';
+  const age = Date.now() - new Date(lastSeen).getTime();
+  if (age < ONLINE_AFTER_MS) return 'online';
+  if (age < STALE_AFTER_MS) return 'stale';
+  return 'offline';
+}
 
 function isOnline(lastSeen?: string | null): boolean {
-  if (!lastSeen) return false;
-  return Date.now() - new Date(lastSeen).getTime() < ONLINE_AFTER_MS;
+  return freshness(lastSeen) === 'online';
 }
 
 export default function LiveTracking() {
@@ -50,9 +58,13 @@ export default function LiveTracking() {
 
   useEffect(() => {
     if (!selected) { setTrail([]); return; }
-    api(`/api/gps/vehicles/${selected}/history?limit=200`)
+    const tripId = live[selected]?.tripId;
+    const params = new URLSearchParams({ limit: '200' });
+    if (tripId) params.set('tripId', tripId);
+    api(`/api/gps/vehicles/${selected}/history?${params}`)
       .then(d => setTrail([...(d.points || [])].reverse().map((p: any) => [p.latitude, p.longitude] as [number, number])))
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
   const icons = useMemo(() => {
@@ -61,8 +73,22 @@ export default function LiveTracking() {
       html: `<div style="background:${color};width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 8px rgba(0,0,0,.5);${pulse ? 'animation:ft-pulse 1.5s infinite;' : ''}"></div><style>@keyframes ft-pulse{0%{transform:scale(1)}50%{transform:scale(1.35)}100%{transform:scale(1)}}</style>`,
       className: '', iconSize: [18, 18], iconAnchor: [9, 9],
     });
-    return { online: dot('#16a34a', true), offline: dot('#64748b', false), stale: dot('#f59e0b', false) };
+    // Spec §7: green active, yellow idle/stale, red alert, gray offline, blue maintenance
+    return {
+      online: dot('#16a34a', true),
+      offline: dot('#64748b', false),
+      stale: dot('#eab308', false),
+      maintenance: dot('#2563eb', false),
+      alert: dot('#dc2626', true),
+    };
   }, [L]);
+
+  function markerIcon(r: any) {
+    if (r.v.status === 'MAINTENANCE') return icons?.maintenance;
+    if (r.fresh === 'stale') return icons?.stale;
+    if (r.fresh === 'offline') return icons?.offline;
+    return icons?.online;
+  }
 
   const rows = vehicles
     .map(v => {
@@ -70,7 +96,8 @@ export default function LiveTracking() {
       const lat = p?.latitude ?? v.lastLat;
       const lng = p?.longitude ?? v.lastLng;
       const seen = p?.serverTimestamp ?? v.lastSeenAt;
-      return { v, p, lat, lng, seen, online: isOnline(seen), demo: !!(p?.demo || p?.isSimulated) };
+      const fresh = freshness(seen);
+      return { v, p, lat, lng, seen, fresh, online: fresh === 'online', demo: !!(p?.demo || p?.isSimulated) };
     })
     .filter(r => r.v.registrationNumber.toLowerCase().includes(filter.toLowerCase()))
     .filter(r => !onlyOnline || r.online);
@@ -103,13 +130,15 @@ export default function LiveTracking() {
         <TileLayer url={process.env.NEXT_PUBLIC_MAP_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'} />
         <FitBounds points={bounds} />
         {withFix.map(r => (
-          <Marker key={r.v.id} position={[r.lat, r.lng]} icon={r.online ? icons?.online : icons?.offline}
+          <Marker key={r.v.id} position={[r.lat, r.lng]} icon={markerIcon(r)}
             eventHandlers={{ click: () => setSelected(r.v.id) }}>
             <Popup>
-              <b>{r.v.registrationNumber}</b> {r.demo && '(DEMO)'}<br />
-              Status: {r.v.status} · {r.online ? 'online' : 'offline'}<br />
-              Speed: {r.p?.speed != null ? `${Number(r.p.speed).toFixed(0)} km/h` : '—'}<br />
-              Updated: {r.seen ? timeAgo(r.seen) : 'never'}
+              <b>{r.v.registrationNumber}</b> {r.demo && '(DEMO — simulated)'}<br />
+              Status: {r.v.status} · {r.fresh}{r.demo ? ' · DEMO' : ''}<br />
+              Speed: {r.p?.speed != null ? `${Number(r.p.speed).toFixed(0)} km/h` : '—'}
+              {r.p?.accuracy != null ? ` · ±${Math.round(r.p.accuracy)}m` : ''}<br />
+              {r.p?.tripId ? <>Trip: {String(r.p.tripId).slice(0, 8)}…<br /></> : null}
+              Updated: {r.seen ? timeAgo(r.seen) : 'never — not live'}
             </Popup>
           </Marker>
         ))}
@@ -124,10 +153,10 @@ export default function LiveTracking() {
         {rows.map(r => (
           <li key={r.v.id}>
             <button className="font-semibold text-blue-600 hover:underline" onClick={() => setSelected(r.v.id)}>
-              <Badge tone={r.online ? 'green' : 'slate'}>{r.online ? 'Online' : 'Offline'}</Badge>{' '}{r.v.registrationNumber}
+              <Badge tone={r.fresh === 'online' ? 'green' : r.fresh === 'stale' ? 'amber' : 'slate'}>{r.fresh}</Badge>{' '}{r.v.registrationNumber}
             </button>
             {' '}· {r.v.status}
-            {r.lat != null ? ` · ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}` : ' · no fix yet'}
+            {r.lat != null ? ` · ${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}` : ' · no fix yet — not live'}
             {r.demo && <> · <Badge tone="amber">DEMO</Badge></>}
             {r.seen && <span className="text-slate-500"> · {timeAgo(r.seen)}</span>}
           </li>

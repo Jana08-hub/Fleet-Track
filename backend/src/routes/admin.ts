@@ -92,8 +92,35 @@ r.get('/email-logs', async (req, res) => {
 });
 
 r.get('/audit-logs', async (req, res) => {
-  const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: Math.min(200, Number(req.query.limit || 50)) });
-  res.json({ logs });
+  const action = req.query.action ? String(req.query.action) : undefined;
+  const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+  const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+  if ((from && isNaN(+from)) || (to && isNaN(+to))) return res.status(400).json({ error: 'Bad from/to date' });
+  const page = Math.max(1, Number(req.query.page || 1));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
+  const where: any = {};
+  if (action) where.action = { contains: action, mode: 'insensitive' };
+  if (from || to) where.createdAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+  const [total, logs] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit }),
+  ]);
+  res.json({ logs, total, page, limit });
+});
+
+r.post('/users/bulk-approve', async (req: AuthRequest, res) => {
+  const ids = (req.body?.ids || []) as string[];
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > 100) {
+    return res.status(400).json({ error: 'Provide 1–100 user ids' });
+  }
+  const result = await prisma.user.updateMany({ where: { id: { in: ids } }, data: { accountApproved: true, accountStatus: 'ACTIVE' } });
+  await audit({ actorUserId: req.user!.id, action: 'BULK_APPROVE_USERS', entityType: 'User', metadata: { count: result.count }, ipAddress: req.ip });
+  res.json({ approved: result.count });
+});
+
+r.post('/maintenance/check-due', async (_req, res) => {
+  const { runDueChecks } = await import('../services/scheduler.js');
+  res.json(await runDueChecks());
 });
 
 export default r;

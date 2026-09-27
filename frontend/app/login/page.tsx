@@ -22,7 +22,6 @@ export default function Login() {
       });
       const body = await res.json();
       if (!res.ok) {
-        if (body.code === 'NOT_APPROVED') { router.push('/pending-approval'); return; }
         throw new Error(body.error || 'Login failed');
       }
       localStorage.setItem('ft_token', body.token);

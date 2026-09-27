@@ -221,6 +221,12 @@ model Trip {
   driver              Driver     @relation(fields: [driverId], references: [id], onDelete: Cascade)
   source              String
   destination         String
+  startLatitude       Float?
+  startLongitude      Float?
+  destinationLatitude Float?
+  destinationLongitude Float?
+  purpose             String?
+  notes               String?
   plannedStartTime    DateTime?
   expectedArrivalTime DateTime?
   actualStartTime     DateTime?
@@ -232,6 +238,7 @@ model Trip {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
+  stops TripStop[]
   gpsPoints GPSLocation[]
   geofenceEvents GeofenceEvent[]
   alerts    Alert[]
@@ -240,6 +247,21 @@ model Trip {
   @@index([driverId])
   @@index([status])
   @@index([createdAt])
+}
+
+model TripStop {
+  id                  String    @id @default(cuid())
+  tripId              String
+  trip                Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  name                String
+  address             String?
+  latitude            Float?
+  longitude           Float?
+  expectedArrivalTime DateTime?
+  stopOrder           Int       @default(0)
+  createdAt           DateTime  @default(now())
+
+  @@index([tripId, stopOrder])
 }
 
 model GPSLocation {

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Search, Plus, CircleUserRound } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PageHeader, Badge, Empty, statusTone } from '@/components/ui';
@@ -61,7 +62,7 @@ export default function Drivers() {
                 <td>
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"><CircleUserRound className="h-5 w-5" /></span>
-                    <div><p className="font-semibold">{d.user?.name}</p><p className="text-xs text-slate-500">{d.user?.email} · {d.phoneNumber}</p></div>
+                    <div><p className="font-semibold"><Link href={`/admin/drivers/${d.id}`} className="text-blue-600 hover:underline">{d.user?.name}</Link></p><p className="text-xs text-slate-500">{d.user?.email} · {d.phoneNumber}</p></div>
                   </div>
                 </td>
                 <td className="text-slate-500">{d.licenseNumber}</td>

@@ -16,7 +16,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "setup": "prisma migrate dev && npm run prisma:seed"
+    "setup": "prisma migrate dev && npm run prisma:seed",
+    "mail:verify": "node verify-smtp.mjs",
+    "mail:test": "tsx send-test.mjs",
+    "mail:errors": "tsx check-mail-errors.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

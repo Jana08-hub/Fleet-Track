@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Map, Truck, Users, Route, Hexagon, Bell, Wrench,
-  BarChart3, MailCheck, LogOut, Menu, X, Moon, Sun,
+  BarChart3, MailCheck, Settings, LogOut, Menu, X, Moon, Sun,
 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { api } from '@/lib/api';
@@ -20,6 +20,7 @@ const NAV = [
   { href: '/admin/maintenance', label: 'Maintenance', icon: Wrench },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/email-verification', label: 'Email Verification', icon: MailCheck },
+  { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

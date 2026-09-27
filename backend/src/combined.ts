@@ -15,6 +15,7 @@ import analyticsRouter from './routes/analytics.js';
 import simulateRouter from './routes/simulate.js';
 import { vehicles, drivers, trips, gps, alerts, maintenance, geofences } from './routes/resources.js';
 import { initSocket } from './socket.js';
+import { startDueChecks } from './services/scheduler.js';
 
 // ---- Single-host mode: UI + API + Socket.IO on ONE port ----
 // Port 3000 is taken on this machine by another project (servex), so single-host defaults to 3100.
@@ -73,6 +74,7 @@ async function main() {
 
   const server = http.createServer(app);
   initSocket(server);
+  startDueChecks();
   server.listen(PORT, () => console.log(`FleetTrack single-host on http://localhost:${PORT}`));
 }
 

@@ -15,11 +15,11 @@ export default function Pending() {
     setBusy(true); setMsg('');
     try {
       const me = await api('/api/auth/me');
-      if (me.accountApproved && me.emailVerified) {
+      if (me.emailVerified) {
         router.push(me.role === 'ADMIN' ? '/admin' : '/driver');
         return;
       }
-      setMsg(me.emailVerified ? 'Still waiting on administrator approval.' : 'Email not verified yet — check your inbox or contact your administrator.');
+      setMsg('Email not verified yet — check your inbox or contact your administrator.');
     } catch { setMsg('Session expired. Please log in again.'); }
     setBusy(false);
   }

@@ -12,6 +12,7 @@ import analyticsRouter from './routes/analytics.js';
 import simulateRouter from './routes/simulate.js';
 import { vehicles, drivers, trips, gps, alerts, maintenance, geofences } from './routes/resources.js';
 import { initSocket } from './socket.js';
+import { startDueChecks } from './services/scheduler.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
@@ -58,4 +59,5 @@ app.use((err: any, _req: any, res: any, _next: any) => {
 
 const server = http.createServer(app);
 initSocket(server);
+startDueChecks();
 server.listen(PORT, () => console.log(`FleetTrack backend on :${PORT}`));

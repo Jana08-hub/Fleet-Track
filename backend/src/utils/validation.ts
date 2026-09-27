@@ -20,6 +20,11 @@ export const verifyOtpSchema = z.object({
   otp: z.string().regex(/^\d{6}$/, 'Enter the 6-digit code'),
 });export const forgotSchema = z.object({ email: z.string().email() });
 export const resetSchema = z.object({ token: z.string().min(10), password: z.string().min(8).max(100) });
+export const profileSchema = z.object({
+  name: z.string().min(2).max(80).optional(),
+  currentPassword: z.string().min(1).max(100).optional(),
+  newPassword: z.string().min(8).max(100).optional(),
+}).refine((d) => (d.newPassword ? !!d.currentPassword : true), { message: 'Current password required', path: ['currentPassword'] });
 
 export const vehicleSchema = z.object({
   registrationNumber: z.string().min(2).max(30),
@@ -45,13 +50,28 @@ export const driverSchema = z.object({
   emergencyContact: z.string().max(20).optional(),
 });
 
+const tripStopSchema = z.object({
+  name: z.string().min(2).max(200),
+  address: z.string().max(500).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  expectedArrivalTime: z.string().optional(),
+});
+
 export const tripSchema = z.object({
   vehicleId: z.string().min(1),
-  driverId: z.string().min(1),
+  driverId: z.string().min(1).optional(),
   source: z.string().min(2).max(200),
   destination: z.string().min(2).max(200),
+  startLatitude: z.number().min(-90).max(90).optional(),
+  startLongitude: z.number().min(-180).max(180).optional(),
+  destinationLatitude: z.number().min(-90).max(90).optional(),
+  destinationLongitude: z.number().min(-180).max(180).optional(),
+  purpose: z.string().max(100).optional(),
+  notes: z.string().max(2000).optional(),
   plannedStartTime: z.string().optional(),
   expectedArrivalTime: z.string().optional(),
+  stops: z.array(tripStopSchema).max(10).optional(),
 });
 
 export const gpsSchema = z.object({

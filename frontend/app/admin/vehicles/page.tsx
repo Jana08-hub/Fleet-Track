@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Search, Plus, Truck } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PageHeader, Badge, Empty, statusTone, timeAgo } from '@/components/ui';
@@ -71,7 +72,7 @@ export default function Vehicles() {
                 <td>
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800"><Truck className="h-4 w-4 text-slate-500" /></span>
-                    <div><p className="font-semibold">{v.registrationNumber}</p><p className="text-xs text-slate-500">{v.brand} {v.model} · {v.manufacturingYear}</p></div>
+                    <div><p className="font-semibold"><Link href={`/admin/vehicles/${v.id}`} className="text-blue-600 hover:underline">{v.registrationNumber}</Link></p><p className="text-xs text-slate-500">{v.brand} {v.model} · {v.manufacturingYear}</p></div>
                   </div>
                 </td>
                 <td className="text-slate-500">{v.vehicleType}</td>
