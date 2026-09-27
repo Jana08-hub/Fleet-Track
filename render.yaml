@@ -1,15 +1,14 @@
-# Render Blueprint — FleetTrack backend (Express + Socket.IO + Prisma).
+# Render Blueprint — FleetTrack backend (Docker).
 # Deploy: push this repo to GitHub, then in Render: New → Blueprint → select repo.
 # The frontend (Next.js) deploys separately on Vercel with Root Directory `frontend`.
 services:
   - type: web
     name: fleettrack-backend
-    runtime: node
+    runtime: docker
     rootDir: backend
-    plan: starter
+    dockerfilePath: ./Dockerfile
+    plan: free
     healthCheckPath: /health
-    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy && npm run build
-    startCommand: node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
